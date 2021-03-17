@@ -60,6 +60,7 @@ CLASS DOCUMENTATION
     
     - System lag (input lag, really)
     - Rate limiting
+    - Small signal bandwidth (servo inertial and position control loop)
     - Deadband
     - Hysteresis (mechanical hysteresis)
     - Bias (mechanical bias)
@@ -88,6 +89,7 @@ Syntax:
   [<rate_limit> {property name | value} </rate_limit>]
   [<rate_limit sense="incr"> {property name | value} </rate_limit>
    <rate_limit sense="decr"> {property name | value} </rate_limit>]
+  <bandwidth> {property name | value} </bandwidth>
   <bias> number </bias>
   <deadband_width> number </deadband_width>
   <hysteresis_width> number </hysteresis_width>
@@ -106,6 +108,7 @@ Example:
   <input> fcs/gimbal_pitch_command </input>
   <lag> 60 </lag>
   <rate_limit> 0.085 </rate_limit> <!-- 0.085 radians/sec -->
+  <bandwidth> 7 </bandwidth> <!-- Hz -->
   <bias> 0.002 </bias>
   <deadband_width> 0.002 </deadband_width>
   <hysteresis_width> 0.05 </hysteresis_width>
@@ -167,6 +170,10 @@ private:
   double PreviousRateLimOutput;
   double PreviousLagInput;
   double PreviousLagOutput;
+  double bandwidth;
+  double SecondOrderAccel;
+  double SecondOrderVel;
+  double SecondOrderPos;
   bool fail_zero;
   bool fail_hardover;
   bool fail_stuck;
@@ -175,6 +182,7 @@ private:
 
   void Hysteresis(void);
   void Lag(void);
+  void SecondOrderLag(void);
   void RateLimit(void);
   void Deadband(void);
   void Bias(void);

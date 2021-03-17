@@ -62,6 +62,7 @@ FGActuator::FGActuator(FGFCS* fcs, Element* element)
   bias = hysteresis_width = deadband_width = 0.0;
   lag = nullptr;
   rate_limit_incr = rate_limit_decr = 0; // no limit
+  bandwidth = SecondOrderAccel = SecondOrderVel = SecondOrderPos = 0.0;
   fail_zero = fail_hardover = fail_stuck = false;
   ca = cb = 0.0;
   initialized = 0;
@@ -72,6 +73,9 @@ FGActuator::FGActuator(FGFCS* fcs, Element* element)
   }
   if ( element->FindElement("hysteresis_width") ) {
     hysteresis_width = element->FindElementValueAsNumber("hysteresis_width");
+  }
+  if ( element->FindElement("bandwidth") ) {
+    bandwidth = 2.0 * M_PI * element->FindElementValueAsNumber("bandwidth");
   }
 
   // There can be a single rate limit specified, or increasing and 
@@ -159,6 +163,7 @@ bool FGActuator::Run(void )
   } else {
     if (lag)                Lag();        // models actuator lag
     if (rate_limit_incr != 0 || rate_limit_decr != 0) RateLimit();  // limit the actuator rate
+    if (bandwidth > 0.0)         SecondOrderLag();
     if (deadband_width != 0.0)   Deadband();
     if (hysteresis_width != 0.0) Hysteresis();
     if (bias != 0.0)             Bias();       // models a finite bias
@@ -213,6 +218,26 @@ void FGActuator::Lag(void)
 
   PreviousLagInput = input;
   PreviousLagOutput = Output;
+}
+
+void FGActuator::SecondOrderLag(void)
+{
+  // "Output" on the right side of the "=" is the current frame input
+  // for this second order filter
+  double input = Output;
+
+  if (initialized) {
+    // second order dynamics model with a damping coefficient of 0.7
+    // using trapezoidal integration
+    const double stiffness = bandwidth * bandwidth;
+    const double damping   = 1.4f * bandwidth;
+    double accel = (input - SecondOrderPos) * stiffness;
+    const double vel = SecondOrderVel;
+    SecondOrderVel += 0.5 * (accel + SecondOrderAccel) * dt;
+    SecondOrderAccel = accel;
+    SecondOrderPos += 0.5 * (vel + SecondOrderVel) * dt;
+    Output = SecondOrderPos;
+  }
 }
 
 //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
